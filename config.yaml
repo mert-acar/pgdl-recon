@@ -1,0 +1,59 @@
+data_args:
+  data_path: data/mat_files_normalized/
+  csv_path: data/metadata_normalized.csv
+  acc: 4
+  acs: 24
+  mask: uniform # choices: [random, uniform]
+
+model_args:
+  # R
+  num_cascades: 10
+  num_layers: 6
+  num_filters: 64
+  kernel_size: 3
+  batch_norm: False
+  # DC
+  mu: 0.5
+  cg_iter: 10
+
+train_args:
+  device: 0
+
+  dataloader_args:
+    num_workers: 16
+    batch_size: 16
+    pin_memory: true
+
+  num_epochs: 10000
+
+  criterion: L1L2Loss
+  criterion_args: {}
+  # criterion: CompositeLoss
+  # criterion_args:
+  #   img_shape: [1, 1, 320, 368]
+  #   lmbda: 0.7
+  #   kernel_size: 5
+  #   sigma: 1.0
+
+  optimizer: Adam
+  optimizer_args:
+    lr: 0.00005
+    betas:
+      - 0.9
+      - 0.999
+    weight_decay: 0.000001
+  
+
+  scheduler: ReduceLROnPlateau
+  scheduler_args:
+    factor: 0.1
+    patience: 5
+    threshold_mode: rel
+    threshold: 0.0001
+    min_lr: 0
+    verbose: True
+
+  early_stop: 15
+
+  output_path: logs/experiment_multicoil_uniform_l1l2_image
+
