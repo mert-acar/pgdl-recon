@@ -1,4 +1,6 @@
+import os
 import torch
+from typing import Union
 import matplotlib.pyplot as plt
 from PIL import Image, ImageFont, ImageDraw
 from torchvision.transforms import ToTensor, ToPILImage

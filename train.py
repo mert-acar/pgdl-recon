@@ -73,7 +73,7 @@ if __name__ == "__main__":
   dataloaders = {
     "train":
       torch.utils.data.DataLoader(
-        FastMRIDataset(**data_config, split="train", device=device),
+        FastMRIDataset(**data_config, split="train"),
         # make sure to shuffle the data during training
         shuffle=True,
         # Batch_size & num_workers are specified in training recipe
@@ -81,7 +81,7 @@ if __name__ == "__main__":
       ),
     "val":
       torch.utils.data.DataLoader(
-        FastMRIDataset(**data_config, split="val", device=device),
+        FastMRIDataset(**data_config, split="val"),
         **train_config["dataloader_args"],
       ),
   }
@@ -120,6 +120,9 @@ if __name__ == "__main__":
       # If the model is in eval mode torch will run using torch.no_grad():
       with torch.set_grad_enabled(phase == "train"):
         for model_inputs, kspace in pbar:
+          for key in model_inputs:
+            model_inputs[key] = model_inputs[key].to(device)
+          kspace = kspace.to(device)
           optimizer.zero_grad()
           outputs = model(**model_inputs)
           # Take multicoil loss in k-space
@@ -196,7 +199,7 @@ if __name__ == "__main__":
 
   # Create the dataloader that will be used for testing
   test_dataloader = torch.utils.data.DataLoader(
-    FastMRIDataset(**data_config, split="test", device=device),
+    FastMRIDataset(**data_config, split="test"),
     **train_config["dataloader_args"],
   )
 

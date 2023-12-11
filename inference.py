@@ -25,8 +25,8 @@ def inference(
   dataset = FastMRIDataset(**data_config, split="test", device=device),
   model_inputs, kspace = dataset[slice_idx]
   for key in model_inputs:
-    model_inputs[key] = model_inputs.unsqueeze(0)
-  kspace = kspace.unsqueeze(0)
+    model_inputs[key] = model_inputs.unsqueeze(0).to(device)
+  kspace = kspace.unsqueeze(0).to(device)
 
   fs_images = mc_kspace_to_image(kspace, model_inputs["csm"]).abs().float()
   with torch.inference_mode():

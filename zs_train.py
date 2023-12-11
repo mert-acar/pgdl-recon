@@ -31,16 +31,16 @@ def zs_recon(
   if checkpoint_path is not None:
     config_path = os.path.join(checkpoint_path, "ExperimentSummary.yaml")
 
-  data_config, model_config, train_config = load_config(yaml_path=config_path)
+  data_config, model_config, train_config = load_config(config_path=config_path)
   data_config["acc"] = R
-  dataset = FastMRIDataset(**data_config, split="test")
+  dataset = FastMRIDataset(**data_config, split="test", device=device)
   model_inputs, kspace = dataset[slice_idx - 1]
 
   # Don't need it, will create our own
   del model_inputs["us_image"]
   for key in model_inputs:
-    model_inputs[key] = model_inputs[key].unsqueeze(0)
-  kspace = kspace.unsqueeze(0)
+    model_inputs[key] = model_inputs[key].unsqueeze(0).to(device)
+  kspace = kspace.unsqueeze(0).to(device)
 
   if checkpoint_path is not None:
     model = load_pretrained_model(checkpoint_path, device)
@@ -130,7 +130,7 @@ def zs_recon(
   print(f"Final SSIM: {ssim_score:.5f}")
 
   err = ((reconstructions - fs_images)**2).detach().cpu().numpy()
-  reconstructions = overlay_scores(reconstructions.unsqueeze(1), psnr_score, ssim_score)
+  reconstructions = overlay_scores(reconstructions, psnr_score, ssim_score)
   reconstructions = reconstructions.detach().cpu().numpy()[0, 0]
   fs_images = fs_images.cpu().numpy()[0]
   _, axs = plt.subplots(1, 3, tight_layout=True, figsize=(12, 5))
@@ -148,9 +148,9 @@ def zs_recon(
   filename = f"results/zs_slice_{slice_idx}_recon.png"
   plt.savefig(filename, bbox_inches="tight")
   print(f"Done. Figure saved to {filename}")
-  return model, final_recon
+  return model, reconstructions
 
 
 if __name__ == "__main__":
   from fire import Fire
-  Fire(zs_recon)
+  model, recon = Fire(zs_recon)

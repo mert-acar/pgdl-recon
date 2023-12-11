@@ -19,6 +19,9 @@ def test_model(
   criterion = HFEN((1, 1, 320, 368), 23, 3).to(device)
   with torch.no_grad():
     for model_inputs, kspace in tqdm(dataloader, total=len(dataloader)):
+      for key in model_inputs:
+        model_inputs[key] = model_inputs[key].to(device)
+      kspace = kspace.to(device)
       outputs = model(**model_inputs)
       reconstructions = real2complex(outputs)
       loss = criterion(image_to_mc_kspace(reconstructions, model_inputs["csm"]), kspace)

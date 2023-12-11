@@ -15,8 +15,7 @@ class FastMRIDataset(Dataset):
     acc: int,
     split: Union[str, None] = None,
     acs: int = 24,
-    mask: str = "random",
-    device: Union[str, torch.device] = torch.device("cpu")
+    mask: str = "random"
   ):
     # Read the data from disk
     self.data_path = data_path
@@ -30,7 +29,6 @@ class FastMRIDataset(Dataset):
     self.acs = acs
     # Mask function
     self.mask_func = cartesian_mask if mask == "random" else uniform_mask
-    self.device = device
 
   def __len__(self):
     return len(self.df)
@@ -47,9 +45,9 @@ class FastMRIDataset(Dataset):
     model_inputs = {
       "us_image": us_image,
       "csm": csm,
-      "mask": mask,
+      "mask": mask
     }
-    return model_inputs.to(device), kspace.to(device)
+    return model_inputs, kspace
 
 
 if __name__ == "__main__":

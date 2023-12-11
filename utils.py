@@ -64,7 +64,7 @@ def ssim(reconstructed: torch.tensor, original: torch.tensor) -> float:
   return structural_similarity_index_measure(reconstructed, original).item()
 
 
-def load_config(config_path: Union[str, os.PathLike] = "configs.yaml",
+def load_config(config_path: Union[str, os.PathLike] = "config.yaml",
                 *keys: List[str]) -> Union[Dict[str, Any], Tuple[Dict[str, Any], ...]]:
   """ Load experiment config from an external yaml file """
   with open(config_path, "r") as f:

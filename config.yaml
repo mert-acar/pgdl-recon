@@ -17,12 +17,11 @@ model_args:
   cg_iter: 10
 
 train_args:
-  device: 0
+  device: 1
 
   dataloader_args:
     num_workers: 16
     batch_size: 16
-    pin_memory: true
 
   num_epochs: 10000
 
@@ -55,5 +54,5 @@ train_args:
 
   early_stop: 15
 
-  output_path: logs/experiment_multicoil_uniform_l1l2_image
+  output_path: logs/sanity_x4_uniform_l1l2
 
