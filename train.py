@@ -11,13 +11,11 @@ from torch.utils.tensorboard import SummaryWriter
 from utils import (
   load_config,
   dict2yaml,
-  coil_projection,
-  coil_combine,
   real2complex,
-  fftc,
-  ifftc,
   psnr,
   ssim,
+  image_to_mc_kspace,
+  mc_kspace_to_image,
 )
 
 
@@ -34,7 +32,9 @@ def checkpoint(model: torch.nn.Module, optimizer: torch.optim.Optimizer, path: s
   )
 
 
-def train(data_config, model_config, train_config):
+if __name__ == "__main__":
+  data_config, model_config, train_config = load_config()
+
   # Device can be either ['cpu', 0, 1, ..., num_gpu - 1]
   if isinstance(train_config["device"], int):
     device = torch.device("cuda:" + str(train_config["device"]))
@@ -73,7 +73,7 @@ def train(data_config, model_config, train_config):
   dataloaders = {
     "train":
       torch.utils.data.DataLoader(
-        FastMRIDataset(**data_config, split="train"),
+        FastMRIDataset(**data_config, split="train", device=device),
         # make sure to shuffle the data during training
         shuffle=True,
         # Batch_size & num_workers are specified in training recipe
@@ -81,7 +81,7 @@ def train(data_config, model_config, train_config):
       ),
     "val":
       torch.utils.data.DataLoader(
-        FastMRIDataset(**data_config, split="val"),
+        FastMRIDataset(**data_config, split="val", device=device),
         **train_config["dataloader_args"],
       ),
   }
@@ -119,29 +119,18 @@ def train(data_config, model_config, train_config):
       # Grad trick to help with GPU memory management
       # If the model is in eval mode torch will run using torch.no_grad():
       with torch.set_grad_enabled(phase == "train"):
-        for batch in pbar:
-          for key in batch:
-            batch[key] = batch[key].to(device)
+        for model_inputs, kspace in pbar:
           optimizer.zero_grad()
-          outputs = model(**batch)
+          outputs = model(**model_inputs)
           # Take multicoil loss in k-space
-          loss = criterion(
-            # [N, Ch, H, W] complex img -> [N, Ch, H, W] complex kspace
-            fftc(
-              # [N, H, W] complex img -> [N, Ch, H, W] complex img
-              coil_projection(
-                # [N, 2, H, W] real img -> [N, H, W] complex img
-                real2complex(outputs),
-                batch["csm"]
-              )
-            ),
-            batch["kspace"]
-          )
+          reconstructions = real2complex(outputs)
+          loss = criterion(image_to_mc_kspace(reconstructions, model_inputs["csm"]), kspace)
 
-          reconstructions = real2complex(outputs).abs().float()
-          fs_images = coil_combine(ifftc(batch["kspace"]), batch["csm"]).abs().float()
-          psnr_score = psnr(reconstructions, fs_images)
-          ssim_score = ssim(reconstructions, fs_images)
+          recon_images = reconstructions.abs().float()
+          fs_images = mc_kspace_to_image(kspace, model_inputs["csm"]).abs().float()
+
+          psnr_score = psnr(recon_images, fs_images)
+          ssim_score = ssim(recon_images, fs_images)
 
           running_error += loss.item()
           running_psnr += psnr_score
@@ -185,7 +174,7 @@ def train(data_config, model_config, train_config):
         last_train_ssim = running_ssim
         writer.add_scalar("Mu", model.dc.mu.item(), epoch)
         writer.add_images(
-          "Reconstructions", overlay_scores(reconstructions, psnr_score, ssim_score), epoch
+          "Reconstructions", overlay_scores(recon_images, psnr_score, ssim_score), epoch
         )
         writer.add_images("Reference Images", fs_images.unsqueeze(1), epoch)
 
@@ -207,7 +196,7 @@ def train(data_config, model_config, train_config):
 
   # Create the dataloader that will be used for testing
   test_dataloader = torch.utils.data.DataLoader(
-    FastMRIDataset(**data_config, split="test"),
+    FastMRIDataset(**data_config, split="test", device=device),
     **train_config["dataloader_args"],
   )
 
@@ -221,7 +210,3 @@ def train(data_config, model_config, train_config):
   for key in scores:
     print(f"{key}: {scores[key]:.4f}")
 
-
-if __name__ == "__main__":
-  data_config, model_config, train_config = load_config()
-  train(data_config, model_config, train_config)

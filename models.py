@@ -1,9 +1,10 @@
 import os
 import torch
 import torch.nn as nn
-from typing import Union
+from typing import Union, Dict, Any, Tuple
 from utils import (
-  real2complex, coil_projection, coil_combine, fftc, ifftc, load_config
+  load_config, image_to_mc_kspace, mc_kspace_to_image, complex_dot_product, real2complex,
+  complex2real, psnr, ssim
 )
 
 
@@ -41,29 +42,42 @@ class DataConsistency(nn.Module):
   def __init__(self, mu: float = 0.5, cg_iter: int = 10):
     super().__init__()
     self.mu = nn.Parameter(torch.tensor(mu), requires_grad=True)
-    self.cg_iter = cg_iter
+    self.CG_ITER = cg_iter
 
   def forward(
-    self, us_image: torch.Tensor, reconstruction: torch.Tensor, mask: torch.Tensor,
-    csm: torch.Tensor
-  ) -> torch.Tensor:
-    curr_r = real2complex(us_image) + self.mu * real2complex(reconstruction)
-    curr_p = curr_r.clone()
-    img_estimate = torch.zeros_like(curr_r)
-    for j in range(self.cg_iter):
-      coil_p = coil_projection(curr_p, csm)
-      coil_p_k = fftc(coil_p) * mask
-      q = coil_combine(ifftc(coil_p_k), csm) + self.mu * curr_p
-      alpha = (curr_r * torch.conj(curr_r)).sum() / (q * torch.conj(curr_p)).sum()
-      next_b = img_estimate + alpha * curr_p
-      next_r = curr_r - alpha * q
-      beta = (next_r * torch.conj(next_r)).sum() / (curr_r * torch.conj(curr_r)).sum()
-      next_p = next_r + beta * curr_p
-
-      img_estimate = next_b
-      curr_p = next_p
-      curr_r = next_r
-    return torch.stack((img_estimate.real, img_estimate.imag), axis=1).float()
+    self, us_image: torch.tensor, reconstruction: torch.tensor, mask: torch.tensor,
+    csm: torch.tensor
+  ) -> torch.tensor:
+    N = us_image.shape[0]
+    # r: [N, H, W] complex
+    r = real2complex(us_image + self.mu * reconstruction)
+    # p: [N, H, W] complex
+    p = r.clone()
+    # x: [N, H, W] complex
+    x = torch.zeros_like(r)
+    # rdotr: [N] real
+    rdotr = complex_dot_product(r, r)
+    for _ in range(self.CG_ITER):
+      # (E^hE + mu*I)x -> Ap: [N, H, W]
+      Ap = mc_kspace_to_image(image_to_mc_kspace(p, csm) * mask, csm) + self.mu * p
+      # pAp for alpha denominator -> pAp: [N]
+      pAp = complex_dot_product(Ap, p)
+      # alpha: [N, 1, 1]
+      alpha = (rdotr / pAp).view(N, 1, 1)
+      # x: [N, H, W]
+      x = x + alpha * p
+      # r: [N, H, W]
+      r = r - alpha * Ap
+      # rrnew: [N]
+      rrnew = complex_dot_product(r, r)
+      # beta: [N, 1, 1]
+      beta = (rdotr / rrnew).view(N, 1, 1)
+      # rdotr: [N]
+      rdotr = rrnew
+      # p: [N, H, W]
+      p = beta * p + r
+    # return [N, 2, H, W]
+    return complex2real(x, 1).float()
 
 
 class CascadeNet(nn.Module):

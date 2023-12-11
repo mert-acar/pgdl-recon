@@ -1,15 +1,12 @@
 import torch
-import numpy as np
-from typing import Dict, Union
 import matplotlib.pyplot as plt
 from PIL import Image, ImageFont, ImageDraw
-from utils import coil_combine, ifftc, real2complex
 from torchvision.transforms import ToTensor, ToPILImage
 
 
 def overlay_scores(
-  tensor: torch.tensor, psnr: float, ssim: float, font_size: int = 12
-) -> torch.tensor:
+  tensor: torch.Tensor, psnr: float, ssim: float, font_size: int = 12
+) -> torch.Tensor:
   # Check if the tensor is in the right shape
   if len(tensor.shape) != 3:
     raise ValueError("Tensor should have shape [N, H, W]")
@@ -29,28 +26,20 @@ def overlay_scores(
   return torch.stack(images)
 
 
-def visualize_batch(sample: Dict[str, torch.tensor]):
-  batch_size = len(sample["kspace"])
-  _, axs = plt.subplots(batch_size, 3, tight_layout=True, squeeze=False)
-  fs_image = coil_combine(ifftc(sample["kspace"]), sample["csm"]).abs().numpy()
-  us_image = real2complex(sample["us_image"]).abs().numpy()
-  for i in range(batch_size):
-    axs[i, 0].imshow(fs_image[i], cmap='gray')
-    axs[i, 0].set_title("Fullysampled")
-    axs[i, 1].imshow(sample["mask"][i, 0].numpy(), cmap='gray')
-    axs[i, 1].set_title("Mask")
-    axs[i, 2].imshow(us_image[i], cmap='gray')
-    axs[i, 2].set_title("Undersampled")
-  for ax in axs.ravel():
-    ax.axis(False)
-  plt.show()
-
-
-def plot_k_space_magnitude(
-  magnitude: Union[torch.tensor, np.ndarray], title: str, vmin: float = 0, vmax: float = 1
+def visualize_results(
+  reconstructions: torch.Tensor,
+  fs_images: torch.Tensor,
+  path: Union[str, os.PathLike, None] = None,
 ):
-  """ Function to plot k-space magnitude """
-  plt.imshow(magnitude, cmap='gray', vmin=vmin, vmax=vmax)
-  plt.title(title)
-  plt.colorbar(shrink=0.62, aspect=13)
-  plt.axis('off')
+  batch_size = reconstructions.shape[0]
+  _, axs = plt.subplots(batch_size, 2, tight_layout=True, figsize=(5 * batch_size, 5 * 2))
+  for i, (recon, fs) in enumerate(zip(reconstructions, fs_images)):
+    axs[i, 0].imshow(recon, cmap='gray')
+    axs[i, 0].axis(False)
+    axs[i, 1].imshow(fs, cmap='gray')
+    axs[i, 1].axis(False)
+
+  if path is not None:
+    plt.savefig(path, bbox_inches='tight')
+  else:
+    plt.show()

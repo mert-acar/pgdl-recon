@@ -2,9 +2,9 @@ import os
 import torch
 from typing import Union
 from dataset import FastMRIDataset
-from visualize import plot_results
+from visualize import visualize_results
 from models import CascadeNet, load_pretrained_model
-from utils import real2complex, load_config, coil_combine, ifftc, psnr, ssim
+from utils import real2complex, load_config, psnr, ssim, mc_kspace_to_image
 
 
 def inference(
@@ -22,19 +22,20 @@ def inference(
   model = load_pretrained_model(checkpoint_path, device)
   model.eval()
 
-  dataset = FastMRIDataset(**data_config, split="test")
-  slc = dataset[slice_idx - 1]
-  for key in slc:
-    slc[key] = slc[key].unsqueeze(0).to(device)
+  dataset = FastMRIDataset(**data_config, split="test", device=device),
+  model_inputs, kspace = dataset[slice_idx]
+  for key in model_inputs:
+    model_inputs[key] = model_inputs.unsqueeze(0)
+  kspace = kspace.unsqueeze(0)
 
-  fs = coil_combine(ifftc(slc["kspace"]), slc["csm"]).abs().cpu()
+  fs_images = mc_kspace_to_image(kspace, model_inputs["csm"]).abs().float()
   with torch.inference_mode():
-    recon = model(**slc)
-  recon = real2complex(recon).detach().abs().cpu()
+    outputs = model(**model_inputs)
+  reconstructions = real2complex(outputs).abs().float()
 
   if plot:
-    plot_results(recon, fs, f"figures/{checkpoint_path.split('/')[-1]}")
-  return recon, fs
+    visualize_results(reconstructions, fs_images, f"figures/{checkpoint_path.split('/')[-1]}.png")
+  return reconstructions, fs_images
 
 
 if __name__ == "__main__":

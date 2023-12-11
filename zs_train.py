@@ -10,15 +10,13 @@ from models import CascadeNet, load_pretrained_model
 from utils import (
   load_config,
   dict2yaml,
-  coil_projection,
   split_array_by_ratio,
-  coil_combine,
   real2complex,
   complex2real,
-  fftc,
-  ifftc,
   psnr,
   ssim,
+  image_to_mc_kspace,
+  mc_kspace_to_image,
 )
 
 
@@ -29,14 +27,20 @@ def zs_recon(
   R: int = 4,
   device: Union[str, torch.device] = "cuda:0"
 ):
-  data_config, model_config, train_config = load_config()
+  config_path = "config.yaml"
+  if checkpoint_path is not None:
+    config_path = os.path.join(checkpoint_path, "ExperimentSummary.yaml")
+
+  data_config, model_config, train_config = load_config(yaml_path=config_path)
   data_config["acc"] = R
   dataset = FastMRIDataset(**data_config, split="test")
-  slc = dataset[slice_idx - 1]
+  model_inputs, kspace = dataset[slice_idx - 1]
+
   # Don't need it, will create our own
-  del slc["us_image"]
-  for key in slc:
-    slc[key] = slc[key].unsqueeze(0).to(device)
+  del model_inputs["us_image"]
+  for key in model_inputs:
+    model_inputs[key] = model_inputs[key].unsqueeze(0)
+  kspace = kspace.unsqueeze(0)
 
   if checkpoint_path is not None:
     model = load_pretrained_model(checkpoint_path, device)
@@ -48,11 +52,11 @@ def zs_recon(
   )
   criterion = getattr(Loss, train_config["criterion"])(**train_config["criterion_args"]).to(device)
 
-  val_mask, train_mask = split_array_by_ratio(slc["mask"], p=0.2)
+  val_mask, train_mask = split_array_by_ratio(model_inputs["mask"], p=0.2)
   masks = [
     tuple(map(lambda x: x.to(device), split_array_by_ratio(train_mask, p=0.4))) for _ in range(K)
   ]
-  fs_images = coil_combine(ifftc(slc["kspace"]), slc["csm"]).abs()
+  fs_images = mc_kspace_to_image(kspace, model_inputs["csm"]).abs()
 
   best_epoch = -1
   best_error = 999999
@@ -72,29 +76,21 @@ def zs_recon(
       running_ssim = 0
       with torch.set_grad_enabled(phase == "train"):
         for (loss_mask, train_mask) in tqdm(masks):
-          us_kspace = slc["kspace"] * train_mask
-          us_image = complex2real(coil_combine(ifftc(us_kspace), slc["csm"]), 1).float()
+          us_kspace = kspace * train_mask
+          us_image = complex2real(mc_kspace_to_image(us_kspace, model_inputs["csm"]), 1).float()
           optimizer.zero_grad()
-          outputs = model(us_image, train_mask, slc["csm"])
+          outputs = model(us_image, train_mask, model_inputs["csm"])
           if phase == "val":
             loss_mask = val_mask
 
-          # Take multicoil loss in k-space
+          reconstructions = real2complex(outputs)
           loss = criterion(
-            # [N, Ch, H, W] complex img -> [N, Ch, H, W] complex kspace
-            fftc(
-              # [N, H, W] complex img -> [N, Ch, H, W] complex img
-              coil_projection(
-                # [N, 2, H, W] real img -> [N, H, W] complex img
-                real2complex(outputs),
-                slc["csm"]
-              )
-            ) * loss_mask,
-            slc["kspace"] * loss_mask
+            image_to_mc_kspace(reconstructions, model_inputs["csm"]) * loss_mask,
+            kspace * loss_mask
           )
-          reconstructions = real2complex(outputs).abs()
-          psnr_score = psnr(reconstructions, fs_images)
-          ssim_score = ssim(reconstructions, fs_images)
+          recon_images = reconstructions.abs().float()
+          psnr_score = psnr(recon_images, fs_images)
+          ssim_score = ssim(recon_images, fs_images)
           running_error += loss.item()
           running_psnr += psnr_score
           running_ssim += ssim_score
@@ -119,24 +115,14 @@ def zs_recon(
 
   model.eval()
 
-  us_kspace = slc["kspace"] * slc["mask"]
-  us_image = complex2real(coil_combine(ifftc(us_kspace), slc["csm"]), 1).float()
-  final_recon = model(us_image, slc["mask"], slc["csm"])
+  us_kspace = kspace * model_inputs["mask"]
+  us_image = complex2real(mc_kspace_to_image(us_kspace, model_inputs["csm"]), 1).float()
+  outputs = model(us_image, model_inputs["mask"], model_inputs["csm"])
+  reconstructions = real2complex(outputs)
 
-  loss = criterion(
-    # [N, Ch, H, W] complex img -> [N, Ch, H, W] complex kspace
-    fftc(
-      # [N, H, W] complex img -> [N, Ch, H, W] complex img
-      coil_projection(
-        # [N, 2, H, W] real img -> [N, H, W] complex img
-        real2complex(final_recon),
-        slc["csm"]
-      )
-    ),
-    slc["kspace"]
-  )
+  loss = criterion(image_to_mc_kspace(reconstructions, model_inputs["csm"]), kspace)
 
-  reconstructions = real2complex(outputs).abs()
+  reconstructions = reconstructions.abs().float()
   psnr_score = psnr(reconstructions, fs_images)
   ssim_score = ssim(reconstructions, fs_images)
   print(f"Final Loss: {loss.item():.5f}")
@@ -156,9 +142,13 @@ def zs_recon(
   axs[2].set_title("Squared Error")
   for ax in axs:
     ax.axis(False)
+
+  if not os.path.exists("results"):
+    os.mkdir("results/")
   filename = f"results/zs_slice_{slice_idx}_recon.png"
   plt.savefig(filename, bbox_inches="tight")
   print(f"Done. Figure saved to {filename}")
+  return model, final_recon
 
 
 if __name__ == "__main__":
