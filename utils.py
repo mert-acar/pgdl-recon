@@ -1,6 +1,7 @@
 import os
 import torch
 import numpy as np
+import pandas as pd
 import torch.fft as fft
 from functools import lru_cache
 from yaml import full_load, dump
@@ -223,7 +224,7 @@ def table(logs_dir: Union[str, os.PathLike] = "logs/", filtr: Union[str, None] =
     df["HFEN"].append(scores["hfen"])
     df["PSNR"].append(scores["psnr"])
     df["SSIM"].append(scores["ssim"])
-  df = pd.DataFrame(df)
+  df = pd.DataFrame(df).sort_values("PSNR", ascending=False)
   return df
 
 

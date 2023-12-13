@@ -117,8 +117,8 @@ def load_pretrained_model(
   states = torch.load(os.path.join(log_path, "checkpoint.pt"), map_location=device)
   model.load_state_dict(states["model_state"])
   if return_optimizer:
-    optimizer = getattr(torch.optim, train_config["optimizer"])(
-      model.parameters(), **train_config["optimizer_args"]
+    optimizer = getattr(torch.optim, train_args["optimizer"])(
+      model.parameters(), **train_args["optimizer_args"]
     )
     optimizer.load_state_dict(states["optimizer_state"])
     return model, optimizer
