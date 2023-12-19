@@ -34,8 +34,8 @@ class ResNetBlock(nn.Module):
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     res = x.clone()
-    x = self.layers(x)
-    return x + res
+    out = self.layers(x)
+    return out + res
 
 
 class VanillaDC(nn.Module):
