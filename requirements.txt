@@ -6,7 +6,5 @@ pandas==2.1.4
 Pillow==10.1.0
 PyYAML==6.0.1
 scipy==1.11.4
-torch==2.1.1
 torchmetrics==1.2.1
-torchvision==0.16.1
 tqdm==4.66.1

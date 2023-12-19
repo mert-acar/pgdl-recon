@@ -3,12 +3,12 @@ data_args:
   csv_path: data/metadata_normalized.csv
   acc: 4
   acs: 24
-  mask: uniform # choices: [random, uniform]
+  mask: random # choices: [random, uniform]
 
 model_args:
   # R
   num_cascades: 10
-  num_layers: 6
+  num_layers: 15
   num_filters: 64
   kernel_size: 3
   batch_norm: False
@@ -20,10 +20,10 @@ train_args:
   device: 1
 
   dataloader_args:
-    num_workers: 16
-    batch_size: 16
+    num_workers: 8
+    batch_size: 8
 
-  num_epochs: 10000
+  num_epochs: 100
 
   criterion: L1L2Loss
   criterion_args: {}
@@ -52,7 +52,7 @@ train_args:
     min_lr: 0
     verbose: True
 
-  early_stop: 15
+  early_stop: 150
 
-  output_path: logs/sanity_x4_uniform_l1l2
+  output_path: logs/x4_uniform_l1l2_vanilla
 

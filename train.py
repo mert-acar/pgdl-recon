@@ -95,8 +95,10 @@ if __name__ == "__main__":
 
   criterion = getattr(Loss, train_config["criterion"])(**train_config["criterion_args"]).to(device)
 
+  """
   scheduler = getattr(torch.optim.lr_scheduler,
                       train_config["scheduler"])(optimizer, **train_config["scheduler_args"])
+  """
 
   print(
     f"Training starting with {len(dataloaders['train'].dataset)} training and {len(dataloaders['val'].dataset)} validation data..."
@@ -157,7 +159,7 @@ if __name__ == "__main__":
         # LR scheduler step. If the validation error is not improved by a factor
         # specified in the training recipe, the learning rate will be scaled by factor
         # again specified in the training recipe
-        scheduler.step(running_error)
+        # scheduler.step(running_error)
 
         # Add the current epoch losses to the tensorboard logs
         writer.add_scalars("Losses", {"train": last_train_loss, "test": running_error}, epoch)
@@ -175,7 +177,7 @@ if __name__ == "__main__":
         last_train_loss = running_error
         last_train_psnr = running_psnr
         last_train_ssim = running_ssim
-        writer.add_scalar("Mu", model.dc.mu.item(), epoch)
+        # writer.add_scalar("Mu", model.dc.mu.item(), epoch)
         writer.add_images(
           "Reconstructions", overlay_scores(recon_images, psnr_score, ssim_score), epoch
         )
