@@ -52,7 +52,8 @@ class FastMRIDataset(Dataset):
 
 if __name__ == "__main__":
   from utils import load_config  
-  data_args = load_config("configs.yaml", "data")
+  from visualize import visualize_batch
+  data_args = load_config("config.yaml", "data")
   dataloader = torch.utils.data.DataLoader(
     FastMRIDataset(**data_args, split="train"),
     batch_size=1
@@ -61,3 +62,4 @@ if __name__ == "__main__":
   for key in sample_input:
     print(f"{key}: {sample_input[key].shape} [{sample_input[key].dtype}]")
   print(f"kspace: {kspace.shape} [{kspace.dtype}]")
+  visualize_batch(sample_input, kspace)

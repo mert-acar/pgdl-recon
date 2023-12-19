@@ -1,8 +1,9 @@
 import os
 import torch
-from typing import Union
+from typing import Union, Dict
 import matplotlib.pyplot as plt
 from PIL import Image, ImageFont, ImageDraw
+from utils import real2complex, mc_kspace_to_image
 from torchvision.transforms import ToTensor, ToPILImage
 
 
@@ -45,3 +46,28 @@ def visualize_results(
     plt.savefig(path, bbox_inches='tight')
   else:
     plt.show()
+    
+
+def visualize_batch(batch: Dict[str, torch.tensor], kspace: torch.tensor):
+  keys = list(batch.keys())
+  keys.remove("csm")
+  batch_size = batch[keys[0]].shape[0]
+  fs = mc_kspace_to_image(kspace, batch["csm"]).abs()
+  _, axs = plt.subplots(batch_size, len(keys) + 1, tight_layout=True, squeeze=False)
+  for j in range(batch_size):
+    for i, key in enumerate(keys):
+      arr = batch[key]
+      if arr.shape[1] == 2:
+        arr = real2complex(arr).abs()
+      elif arr.shape[1] > 2:
+        continue
+      elif arr.shape[1] == 1:
+        arr = arr[:, 0]
+      axs[j, i].imshow(arr[j], cmap='gray') 
+      axs[j, i].set_title(key)
+      axs[j, i].axis(False)
+    axs[j, -1].imshow(fs[j], cmap='gray')
+    axs[j, -1].set_title("reference")
+    axs[j, -1].axis(False)
+  plt.show()
+  

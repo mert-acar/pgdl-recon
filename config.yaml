@@ -1,11 +1,11 @@
-data_args:
+data:
   data_path: data/mat_files_normalized/
   csv_path: data/metadata_normalized.csv
   acc: 4
   acs: 24
-  mask: random # choices: [random, uniform]
+  mask: uniform # choices: [random, uniform]
 
-model_args:
+model:
   # R
   num_cascades: 10
   num_layers: 15
@@ -16,7 +16,7 @@ model_args:
   mu: 0.5
   cg_iter: 10
 
-train_args:
+train:
   device: 1
 
   dataloader_args:
