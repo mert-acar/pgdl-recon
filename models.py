@@ -71,7 +71,11 @@ class PGDDC(nn.Module):
     self, us_image: torch.tensor, reconstruction: torch.tensor, mask: torch.tensor,
     csm: torch.tensor
   ) -> torch.tensor:
-    pass
+    y = image_to_mc_kspace(real2complex(us_image), csm) * mask
+    Az = image_to_mc_kspace(real2complex(reconstruction), csm) * mask
+    # PGD step
+    x = reconstruction + self.mu * complex2real(mc_kspace_to_image(y - Az, csm), 1).float()
+    return x
     
 
 
@@ -79,7 +83,7 @@ class VSDC(nn.Module):
   def __init__(self, mu: float = 0.5, cg_iter: int = 10):
     """
     Data consistency layer with variable splitting method.
-    The k-space merge is done using Conjugate Gradient Descent
+    The k-space merge is done using Conjugate Gradient
     """
     super().__init__()
     self.mu = nn.Parameter(torch.tensor(mu), requires_grad=True)
@@ -136,8 +140,9 @@ class CascadeNet(nn.Module):
     self.blocks = nn.ModuleList(
       [ResNetBlock(num_layers, num_filters, kernel_size, batch_norm) for _ in range(num_cascades)]
     )
-    # self.dc = VCDC(mu, cg_iter)
-    self.dc = VanillaDC()
+    self.dc = VSDC(mu, cg_iter)
+    # self.dc = VanillaDC()
+    # self.dc = PGDDC(mu)
 
   def forward(
     self, us_image: torch.Tensor, mask: torch.Tensor, csm: torch.Tensor, **kwargs

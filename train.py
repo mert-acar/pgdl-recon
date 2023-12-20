@@ -177,7 +177,7 @@ if __name__ == "__main__":
         last_train_loss = running_error
         last_train_psnr = running_psnr
         last_train_ssim = running_ssim
-        # writer.add_scalar("Mu", model.dc.mu.item(), epoch)
+        writer.add_scalar("Mu", model.dc.mu.item(), epoch)
         writer.add_images(
           "Reconstructions", overlay_scores(recon_images, psnr_score, ssim_score), epoch
         )

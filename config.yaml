@@ -17,11 +17,11 @@ model:
   cg_iter: 10
 
 train:
-  device: 1
+  device: 3
 
   dataloader_args:
     num_workers: 8
-    batch_size: 8
+    batch_size: 16
 
   num_epochs: 100
 
@@ -54,5 +54,5 @@ train:
 
   early_stop: 150
 
-  output_path: logs/x4_uniform_l1l2_vanilla
+  output_path: logs/x4_uniform_l1l2_vs
 
