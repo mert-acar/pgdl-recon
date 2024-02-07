@@ -127,7 +127,7 @@ def normal_pdf(length: int, sensitivity: float) -> np.ndarray:
   return np.exp(-sensitivity * (np.arange(length) - length / 2)**2)
 
 
-def cartesian_mask(shape: Tuple[int], acceleration_rate: int, sample_n: int) -> np.ndarray:
+def random_mask(shape: Tuple[int], acceleration_rate: int, sample_n: int) -> np.ndarray:
   """ 
   Create an undersampling mask for the given acceleration rate (R). 
   sample_n dictates the number of ACS lines.
@@ -179,56 +179,12 @@ def image_to_mc_kspace(
   return fftc(coil_project(image, coil_sensitivities, coil_dim))
 
 
-def complex_dot_product(input_x: torch.tensor, input_y: torch.tensor) -> torch.tensor:
-  """ Complex dot product that preserves the batch dimension """
-  assert input_x.shape == input_y.shape, "Inputs must have the same shape!"
-  dims = tuple(range(1, input_x.ndim))
-  return (torch.conj(input_y) * input_x).sum(dims)
+def ip(x: torch.tensor, y: torch.tensor, dims: Union[list[int], None] = None) -> torch.tensor:
+  """ Computes the inner product <x, y> = y^{H}x """
+  return (torch.conj(y) * x).sum(dims)
 
 
-def table(logs_dir: Union[str, os.PathLike] = "logs/", filtr: Union[str, None] = None):
-  df = {
-    "Acceleration Rate": [],
-    "Training Mask": [],
-    "Loss Function": [],
-    "Laplacian Center": [],
-    "Mixing Parameter": [],
-    "HFEN": [],
-    "PSNR": [],
-    "SSIM": [],
-  }
-  experiments = os.listdir(logs_dir)
-  for exp in experiments:
-    if not os.path.isdir(os.path.join(logs_dir, exp)):
-      continue
-    try:
-      with open(os.path.join(logs_dir, exp, "scores.yaml"), "r") as f:
-        scores = full_load(f)
-    except:
-      continue
-
-    if filtr is not None and filtr not in exp:
-      continue
-
-    features = exp.split("_")
-    df["Acceleration Rate"].append(features[0])
-    df["Training Mask"].append(features[1])
-    if features[2] == "hfen":
-      df["Loss Function"].append("L1L2 + HFEN")
-      df["Laplacian Center"].append(features[3].replace("c", ""))
-      df["Mixing Parameter"].append(features[4].replace("l", ""))
-    else:
-      df["Loss Function"].append("L1L2")
-      df["Laplacian Center"].append("")
-      df["Mixing Parameter"].append("")
-    df["HFEN"].append(scores["hfen"])
-    df["PSNR"].append(scores["psnr"])
-    df["SSIM"].append(scores["ssim"])
-  df = pd.DataFrame(df).sort_values("PSNR", ascending=False)
-  return df
-
-
-if __name__ == "__main__":
-  df = table("logs/")
-  print(df)
-  df.to_csv(f"data/results.csv")
+def expand(a: torch.tensor, target_ndim: int) -> torch.tensor:
+  while len(a.shape) < target_ndim:
+    a = a.unsqueeze(-1)
+  return a

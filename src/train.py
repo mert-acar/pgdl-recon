@@ -59,9 +59,9 @@ if __name__ == "__main__":
   # copyfile("config.yaml", os.path.join(train_config["output_path"], "ExperimentSummary.yaml"))
   dict2yaml(
     dict_to_save={
-      'data_args': data_config,
-      "model_args": model_config,
-      "train_args": train_config
+      'data': data_config,
+      "model": model_config,
+      "train": train_config
     },
     yaml_path=os.path.join(train_config["output_path"], "ExperimentSummary.yaml"),
   )
@@ -95,10 +95,8 @@ if __name__ == "__main__":
 
   criterion = getattr(Loss, train_config["criterion"])(**train_config["criterion_args"]).to(device)
 
-  """
   scheduler = getattr(torch.optim.lr_scheduler,
                       train_config["scheduler"])(optimizer, **train_config["scheduler_args"])
-  """
 
   print(
     f"Training starting with {len(dataloaders['train'].dataset)} training and {len(dataloaders['val'].dataset)} validation data..."
@@ -159,7 +157,7 @@ if __name__ == "__main__":
         # LR scheduler step. If the validation error is not improved by a factor
         # specified in the training recipe, the learning rate will be scaled by factor
         # again specified in the training recipe
-        # scheduler.step(running_error)
+        scheduler.step(running_error)
 
         # Add the current epoch losses to the tensorboard logs
         writer.add_scalars("Losses", {"train": last_train_loss, "test": running_error}, epoch)
