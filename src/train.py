@@ -2,6 +2,7 @@ import os
 import torch
 import loss as Loss
 from tqdm import tqdm
+from time import time
 from test import test_model
 from models import CascadeNet
 from dataset import FastMRIDataset
@@ -71,19 +72,19 @@ if __name__ == "__main__":
 
   # Create the dataloaders
   dataloaders = {
-    "train":
-      torch.utils.data.DataLoader(
-        FastMRIDataset(**data_config, split="train"),
-        # make sure to shuffle the data during training
-        shuffle=True,
-        # Batch_size & num_workers are specified in training recipe
-        **train_config["dataloader_args"],
-      ),
-    "val":
-      torch.utils.data.DataLoader(
-        FastMRIDataset(**data_config, split="val"),
-        **train_config["dataloader_args"],
-      ),
+    "train": torch.utils.data.DataLoader(
+      FastMRIDataset(**data_config, split="train"),
+      # make sure to shuffle the data during training
+      shuffle=True,
+      pin_memory=True,
+      # Batch_size & num_workers are specified in training recipe
+      **train_config["dataloader_args"],
+    ),
+    "val": torch.utils.data.DataLoader(
+      FastMRIDataset(**data_config, split="val"),
+      pin_memory=True,
+      **train_config["dataloader_args"],
+    ),
   }
 
   model = CascadeNet(**model_config).to(device)
@@ -93,15 +94,19 @@ if __name__ == "__main__":
     model.parameters(), **train_config["optimizer_args"]
   )
 
-  criterion = getattr(Loss, train_config["criterion"])(**train_config["criterion_args"]).to(device)
+  criterion = getattr(
+    Loss, train_config["criterion"]
+  )(**train_config["criterion_args"]).to(device)
 
-  scheduler = getattr(torch.optim.lr_scheduler,
-                      train_config["scheduler"])(optimizer, **train_config["scheduler_args"])
+  scheduler = getattr(
+    torch.optim.lr_scheduler, train_config["scheduler"]
+  )(optimizer, **train_config["scheduler_args"])
 
   print(
     f"Training starting with {len(dataloaders['train'].dataset)} training and {len(dataloaders['val'].dataset)} validation data..."
   )
 
+  tick = time()
   best_epoch = -1
   best_error = 999999
   for epoch in range(train_config["num_epochs"]):
@@ -125,6 +130,7 @@ if __name__ == "__main__":
           kspace = kspace.to(device)
           optimizer.zero_grad()
           outputs = model(**model_inputs)
+
           # Take multicoil loss in k-space
           reconstructions = real2complex(outputs)
           loss = criterion(image_to_mc_kspace(reconstructions, model_inputs["csm"]), kspace)
@@ -189,6 +195,11 @@ if __name__ == "__main__":
 
   # Close the tensorboard object
   writer.close()
+
+  total_time = time() - tick
+  m, s = divmod(total_time, 60)
+  h, m = divmod(m, 60)
+  print(f"Training took {h:d} hours {m:d} minutes and {s:.2f} seconds...")
 
   # Load the best checkpoint to run the test on.
   best_state = torch.load(

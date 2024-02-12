@@ -26,12 +26,6 @@ train:
 
   criterion: L1L2Loss
   criterion_args: {}
-  # criterion: CompositeLoss
-  # criterion_args:
-  #   img_shape: [1, 1, 320, 368]
-  #   lmbda: 0.7
-  #   kernel_size: 5
-  #   sigma: 1.0
 
   optimizer: Adam
   optimizer_args:
@@ -51,7 +45,6 @@ train:
     min_lr: 0
     verbose: True
 
-  early_stop: 150
+  early_stop: 15
 
-  output_path: logs/x4_uniform_l1l2_vs
-
+  output_path: ../logs/x4_uniform_l1l2_vs

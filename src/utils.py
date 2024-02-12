@@ -28,12 +28,12 @@ def complex2real(arr: torch.tensor, stack_dim: int = 0) -> torch.tensor:
   return torch.stack((arr.real, arr.imag), dim=stack_dim)
 
 
-def fftc(image: torch.tensor, dims: Tuple[int] = [-2, -1], norm: str = "ortho") -> torch.tensor:
+def fftc(image: torch.tensor, dims: Tuple[int] = (-2,-1), norm: str = "ortho") -> torch.tensor:
   """ Centered FFT [Unitary if norm == 'ortho'] """
   return fft.fftshift(fft.fftn(fft.ifftshift(image, dim=dims), dim=dims, norm=norm), dim=dims)
 
 
-def ifftc(kspace: torch.tensor, dims: Tuple[int] = [-2, -1], norm: str = "ortho") -> torch.tensor:
+def ifftc(kspace: torch.tensor, dims: Tuple[int] = (-2,-1), norm: str = "ortho") -> torch.tensor:
   """ Centered Inverse FFT [Unitary if norm == 'ortho'] """
   return fft.ifftshift(fft.ifftn(fft.fftshift(kspace, dim=dims), norm=norm, dim=dims), dim=dims)
 
@@ -71,7 +71,7 @@ def load_config(config_path: Union[str, os.PathLike] = "config.yaml",
   with open(config_path, "r") as f:
     config = full_load(f)
   if not keys:
-    return tuple(config.values())
+    return config
   # Fetching the configurations for the given keys
   configs = tuple(config.get(key) for key in keys)
 
